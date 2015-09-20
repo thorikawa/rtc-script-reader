@@ -1,0 +1,54 @@
+# script_reader CMake config file
+#
+# This file sets the following variables:
+# script_reader_FOUND - Always TRUE.
+# script_reader_INCLUDE_DIRS - Directories containing the script_reader include files.
+# script_reader_IDL_DIRS - Directories containing the script_reader IDL files.
+# script_reader_LIBRARIES - Libraries needed to use script_reader.
+# script_reader_DEFINITIONS - Compiler flags for script_reader.
+# script_reader_VERSION - The version of script_reader found.
+# script_reader_VERSION_MAJOR - The major version of script_reader found.
+# script_reader_VERSION_MINOR - The minor version of script_reader found.
+# script_reader_VERSION_REVISION - The revision version of script_reader found.
+# script_reader_VERSION_CANDIDATE - The candidate version of script_reader found.
+
+message(STATUS "Found script_reader-@PROJECT_VERSION@")
+set(script_reader_FOUND TRUE)
+
+find_package(<dependency> REQUIRED)
+
+#set(script_reader_INCLUDE_DIRS
+#    "@CMAKE_INSTALL_PREFIX@/include/@PROJECT_NAME_LOWER@-@PROJECT_VERSION_MAJOR@"
+#    ${<dependency>_INCLUDE_DIRS}
+#    )
+#
+#set(script_reader_IDL_DIRS
+#    "@CMAKE_INSTALL_PREFIX@/include/@PROJECT_NAME_LOWER@-@PROJECT_VERSION_MAJOR@/idl")
+set(script_reader_INCLUDE_DIRS
+    "@CMAKE_INSTALL_PREFIX@/include/@CPACK_PACKAGE_FILE_NAME@"
+    ${<dependency>_INCLUDE_DIRS}
+    )
+set(script_reader_IDL_DIRS
+    "@CMAKE_INSTALL_PREFIX@/include/@CPACK_PACKAGE_FILE_NAME@/idl")
+
+
+if(WIN32)
+    set(script_reader_LIBRARIES
+        "@CMAKE_INSTALL_PREFIX@/@LIB_INSTALL_DIR@/@CMAKE_SHARED_LIBRARY_PREFIX@@PROJECT_NAME_LOWER@@CMAKE_STATIC_LIBRARY_SUFFIX@"
+        ${<dependency>_LIBRARIES}
+        )
+else(WIN32)
+    set(script_reader_LIBRARIES
+        "@CMAKE_INSTALL_PREFIX@/@LIB_INSTALL_DIR@/@CMAKE_SHARED_LIBRARY_PREFIX@@PROJECT_NAME_LOWER@@CMAKE_SHARED_LIBRARY_SUFFIX@"
+        ${<dependency>_LIBRARIES}
+        )
+endif(WIN32)
+
+set(script_reader_DEFINITIONS ${<dependency>_DEFINITIONS})
+
+set(script_reader_VERSION @PROJECT_VERSION@)
+set(script_reader_VERSION_MAJOR @PROJECT_VERSION_MAJOR@)
+set(script_reader_VERSION_MINOR @PROJECT_VERSION_MINOR@)
+set(script_reader_VERSION_REVISION @PROJECT_VERSION_REVISION@)
+set(script_reader_VERSION_CANDIDATE @PROJECT_VERSION_CANDIDATE@)
+
