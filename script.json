@@ -1,0 +1,10 @@
+[
+    {
+        "robot_id": 1,
+        "audio_url": "http://localhost:8080/audio2/1_01.mp3"
+    },
+    {
+        "robot_id": 2,
+        "audio_url": "http://localhost:8080/audio2/1_02.mp3"
+    }
+]
