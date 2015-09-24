@@ -9,7 +9,7 @@
 #   rtc-template -bPython --module-name=script_reader 
 #   --module-desc='ModuleDescription' --module-version=1.0.0 --module-vendor=Takahiro Horikawa 
 #   --module-category=Development --module-comp-type=STATIC 
-#   --module-act-type=PERIODIC --module-max-inst=1 
+#   --module-act-type=SPORADIC --module-max-inst=1 
 #   --config=script_file:string:/tmp/script.txt 
 #   --outport=servo_robot1:RTC::TimedVector2D --outport=servo_robot2:RTC::TimedVector2D 
 
@@ -25,7 +25,7 @@ Vendor:      Takahiro Horikawa
 Category:    Development
 Kind:        DataFlowComponent
 Comp. Type:  STATIC
-Act. Type:   PERIODIC
+Act. Type:   SPORADIC
 MAX Inst.:   1
 Lang:        Python
 Lang Type:   
