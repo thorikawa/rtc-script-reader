@@ -179,6 +179,7 @@ class script_reader(OpenRTM_aist.DataFlowComponentBase):
 
 		self.lastState = 0
 		self.lastTime = 0
+		self.isPlaying = False
 
 		print "load script file"
 		f = open(self._script_file[0])
@@ -220,15 +221,12 @@ class script_reader(OpenRTM_aist.DataFlowComponentBase):
 			output = True)
 
 		amp  = (2**8) ** wf.getsampwidth() / 2
-		print "nframe=%d" % wf.getnframes()
+		# print "nframe=%d" % wf.getnframes()
 		buffer = wf.readframes(wf.getnframes())
 		data = np.frombuffer(buffer, dtype="int16")
 		# normalize
 		data = data / float(amp)
-		print "len=%d" % len(data)
-		# for i in range(len(data)/2):
-		# 	d = data[2*i] * 256 + data[2*i + 1]
-		# 	print str(d)
+		# print "len=%d" % len(data)
 		threshold = 0.05
 		minSilentDurationInSec = 0.2
 		minSilentSamples = minSilentDurationInSec * sampleRate
@@ -270,11 +268,13 @@ class script_reader(OpenRTM_aist.DataFlowComponentBase):
 		print str(noisyPart)
 
 		self.playInBackground(stream, buffer)
+		# TODO: This is a temporary workaround to wait until audio file starts to play...
+		time.sleep(0.9)
 
 		# loop
-		moveMouth = False
 		base = int(round(time.time() * 1000))
 		while self.isPlaying:
+			moveMouth = False
 			cur = int(round(time.time() * 1000))
 			pos = cur - base
 
@@ -288,13 +288,11 @@ class script_reader(OpenRTM_aist.DataFlowComponentBase):
 
 			if moveMouth:
 				if self.lastState == 0 and cur > self.lastTime + 120:
-					print "open"
 					self.lastState = 1
 					self.lastTime = cur
 					moveServo = True
 					angle = 100
 				elif self.lastState == 1 and cur > self.lastTime + 120:
-					print "close"
 					self.lastState = 0
 					self.lastTime = cur
 					moveServo = True
@@ -313,7 +311,6 @@ class script_reader(OpenRTM_aist.DataFlowComponentBase):
 			time.sleep(1.0/30.0)
 
 	def _play(self, stream, buffer):
-		self.isPlaying = True
 		stream.write(buffer)
 		stream.close()
 		self.audio.terminate()
@@ -322,6 +319,7 @@ class script_reader(OpenRTM_aist.DataFlowComponentBase):
 	def playInBackground(self, stream, buffer):
 		self._thread = threading.Thread(target=self._play, args=(stream, buffer))
 		self._thread.daemon = True
+		self.isPlaying = True
 		self._thread.start()
 
 	#	##
