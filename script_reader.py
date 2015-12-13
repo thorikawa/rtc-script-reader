@@ -24,6 +24,8 @@ import shutil
 import wave
 import numpy as np
 import math
+import threading
+from datetime import datetime
 
 # Import Service implementation class
 # <rtc-template block="service_impl">
@@ -75,7 +77,10 @@ class script_reader(OpenRTM_aist.DataFlowComponentBase):
 		"""
 		self._servo_robot2Out = OpenRTM_aist.OutPort("servo_robot2", self._d_servo_robot2)
 
-
+		self._d_tts_data = RTC.TimedStringSeq(RTC.Time(0,0),[])
+		"""
+		"""
+		self._tts_dataOut = OpenRTM_aist.OutPort("tts_data", self._d_tts_data)
 		
 
 
@@ -109,6 +114,7 @@ class script_reader(OpenRTM_aist.DataFlowComponentBase):
 		# Set OutPort buffers
 		self.addOutPort("servo_robot1",self._servo_robot1Out)
 		self.addOutPort("servo_robot2",self._servo_robot2Out)
+		self.addOutPort("tts_data", self._tts_dataOut)
 		
 		# Set service provider to Ports
 		
@@ -141,13 +147,7 @@ class script_reader(OpenRTM_aist.DataFlowComponentBase):
 	#	#
 	#	#
 	def onStartup(self, ec_id):
-		print "load script file"
-		f = open(self._script_file[0])
-		self.script_data = json.load(f)
-		print str(self.script_data)
-
-		self.audio = pyaudio.PyAudio()
-		self.onActivated(1)
+		# self.onActivated(1)
 		return RTC.RTC_OK
 	
 	#	##
@@ -175,24 +175,42 @@ class script_reader(OpenRTM_aist.DataFlowComponentBase):
 	#	#
 	#	#
 	def onActivated(self, ec_id):
-		print "onActivated"
+		print "onActivated Start"
+
+		self.lastState = 0
+		self.lastTime = 0
+
+		print "load script file"
+		f = open(self._script_file[0])
+		self.script_data = json.load(f)
+		print str(self.script_data)
+
 		for line in self.script_data:
-			self.speak(line["audio_url"])
 			if line["robot_id"] == 1:
-				pass
+				self.speak(0, line.get("audio_url"), line.get("text"))
 			elif line["robot_id"] == 2:
-				pass
+				self.speak(1, line.get("audio_url"), line.get("text"))
 			else:
 				print "invalid robot id:" + str(line.robot_id)
+		print "onActivated End"
 		return RTC.RTC_OK
 	
-	def speak(self, audio_url):
-		cache_file = "cache.wav"
-		res = requests.get(audio_url, stream=True)
-		with open(cache_file, "wb") as fp:
-			shutil.copyfileobj(res.raw, fp)
+	def speak(self, robot_id, audio_url = None, text = None):
+		self.audio = pyaudio.PyAudio()
+		cache_file = "/tmp/cache.wav"
+		if audio_url != None:
+			res = requests.get(audio_url, stream=True)
+			with open(cache_file, "wb") as fp:
+				shutil.copyfileobj(res.raw, fp)
+		elif text != None:
+			self._d_tts_data.data = [text.encode('utf-8'), cache_file]
+			OpenRTM_aist.setTimestamp(self._d_tts_data)
+			self._tts_dataOut.write()
+			time.sleep(2)
+		else:
+			print "Either audio url or text has to be specified."
 
-		wf = wave.open(cache_file, "r")
+		wf = wave.open(cache_file, "rb")
 		sampleRate = wf.getframerate()
 		channels = wf.getnchannels()
 		stream = self.audio.open(
@@ -251,11 +269,60 @@ class script_reader(OpenRTM_aist.DataFlowComponentBase):
 		noisyPart = map(lambda t: 1000*t, noisyPart)
 		print str(noisyPart)
 
-		# stream.write(buffer)
-		# stream.close()
-		self.audio.terminate()
+		self.playInBackground(stream, buffer)
 
-		pass
+		# loop
+		moveMouth = False
+		base = int(round(time.time() * 1000))
+		while self.isPlaying:
+			cur = int(round(time.time() * 1000))
+			pos = cur - base
+
+			for i in range(len(noisyPart)/2):
+				if noisyPart[2*i] < pos and pos < noisyPart[2*i + 1]:
+					moveMouth = True
+					break
+
+			moveServo = False
+			angle = 90
+
+			if moveMouth:
+				if self.lastState == 0 and cur > self.lastTime + 120:
+					print "open"
+					self.lastState = 1
+					self.lastTime = cur
+					moveServo = True
+					angle = 100
+				elif self.lastState == 1 and cur > self.lastTime + 120:
+					print "close"
+					self.lastState = 0
+					self.lastTime = cur
+					moveServo = True
+					angle = 80
+
+				if moveServo:
+					if robot_id == 0:
+						self._d_servo_robot1.data = RTC.Vector2D(0, angle)
+						OpenRTM_aist.setTimestamp(self._d_servo_robot1)
+						self._servo_robot1Out.write()
+					elif robot_id == 1:
+						self._d_servo_robot2.data = RTC.Vector2D(0, angle)
+						OpenRTM_aist.setTimestamp(self._d_servo_robot2)
+						self._servo_robot2Out.write()
+
+			time.sleep(1.0/30.0)
+
+	def _play(self, stream, buffer):
+		self.isPlaying = True
+		stream.write(buffer)
+		stream.close()
+		self.audio.terminate()
+		self.isPlaying = False
+
+	def playInBackground(self, stream, buffer):
+		self._thread = threading.Thread(target=self._play, args=(stream, buffer))
+		self._thread.daemon = True
+		self._thread.start()
 
 	#	##
 	#	#
@@ -282,10 +349,7 @@ class script_reader(OpenRTM_aist.DataFlowComponentBase):
 	#	#
 	#	#
 	def onExecute(self, ec_id):
-		print "onExecute"
-		self._d_servo_robot1.data = RTC.Vector2D(4, 80)
-		OpenRTM_aist.setTimestamp(self._d_servo_robot1)
-		self._servo_robot1Out.write()
+		# print "onExecute"
 		return RTC.RTC_OK
 	
 	#	##
